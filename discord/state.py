@@ -117,6 +117,7 @@ class ConnectionState:
 
         self.allowed_mentions = allowed_mentions
         self._chunk_requests = []
+        self._pending_chunks = {}
 
         activity = options.get('activity', None)
         if activity:
@@ -804,13 +805,27 @@ class ConnectionState:
         return self._add_guild_from_data(data)
 
     async def chunk_guild(self, guild, *, wait=True, cache=None):
+        key = (guild.id, cache)
+
+        def when_done(f):
+            del self._pending_chunks[key]
+
+        try:
+            fut = self._pending_chunks[key]
+        except KeyError:
+            fut = self._pending_chunks[key] = self._chunk_guild(guild, cache=cache)
+            fut.add_done_callback(when_done)
+
+        if wait:
+            return await fut
+        return fut
+
+    def _chunk_guild(self, guild, *, cache=None):
         cache = cache or self._member_cache_flags.joined
         future = self.loop.create_future()
         request = ChunkRequest(guild.id, future, self._get_guild, cache=cache)
         self._chunk_requests.append(request)
-        await self.chunker(guild.id, nonce=request.nonce)
-        if wait:
-            return await request.future
+        self.loop.create_task(self.chunker(guild.id, nonce=request.nonce))
         return request.future
 
     async def _chunk_and_dispatch(self, guild, unavailable):
