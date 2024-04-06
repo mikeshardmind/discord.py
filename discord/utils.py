@@ -76,11 +76,11 @@ import zlib
 import yarl
 
 try:
-    import orjson  # type: ignore
+    import msgspec  # type: ignore
 except ModuleNotFoundError:
-    HAS_ORJSON = False
+    HAS_MSGSPEC = False
 else:
-    HAS_ORJSON = True
+    HAS_MSGSPEC = True
 
 try:
     import zstandard  # type: ignore
@@ -659,12 +659,16 @@ def _is_submodule(parent: str, child: str) -> bool:
     return parent == child or child.startswith(parent + '.')
 
 
-if HAS_ORJSON:
+if HAS_MSGSPEC:
+    assert msgspec
+    encoder = msgspec.json.Encoder()
+    encode = encoder.encode
+    decoder = msgspec.json.Decoder()
 
     def _to_json(obj: Any) -> str:
-        return orjson.dumps(obj).decode('utf-8')
+        return encode(obj).decode('utf-8')
 
-    _from_json = orjson.loads  # type: ignore
+    _from_json = decoder.decode
 
 else:
 
