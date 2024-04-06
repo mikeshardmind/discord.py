@@ -52,7 +52,7 @@ docs = [
     "sphinx-inline-tabs==2023.4.21",
 ]
 speed = [
-    "orjson>=3.5.4",
+    "msgspec>=0.18.6",
     "aiodns>=1.1",
     "Brotli",
     "cchardet==2.1.7; python_version < '3.10'",
