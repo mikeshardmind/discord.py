@@ -854,8 +854,12 @@ class Client:
         """
 
         async def runner():
-            async with self:
-                await self.start(token, reconnect=reconnect)
+            try:
+                async with self:
+                    await self.start(token, reconnect=reconnect)
+            finally:
+                if not self.is_closed():
+                    await self.close()
 
         if log_handler is not None:
             utils.setup_logging(
@@ -865,13 +869,78 @@ class Client:
                 root=root_logger,
             )
 
+        import signal
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
         try:
-            asyncio.run(runner())
+            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+        except NotImplementedError:
+            pass
+
+        def stop_when_done(fut: asyncio.Future[None]):
+            loop.stop()
+
+        client_future = asyncio.ensure_future(runner(), loop=loop)
+        try:
+            client_future.add_done_callback(stop_when_done)
+            loop.run_forever()
         except KeyboardInterrupt:
-            # nothing to do here
-            # `asyncio.run` handles the loop cleanup
-            # and `self.start` closes all sockets and the HTTPClient instance.
-            return
+            _log.debug("Recieved KeyboardInterrupt, shutting down event loop")
+        finally:
+            client_future.remove_done_callback(stop_when_done)
+            if not self.is_closed():
+                t = loop.create_task(self.close())
+                loop.run_until_complete(t)
+
+        tasks: set[asyncio.Task[Any]] = {t for t in asyncio.all_tasks(loop) if not t.done()}
+        for t in tasks:
+            t.cancel()
+
+        async def async_finalization():
+            # Implementation detail to ensure the event loop cycles over tasks at
+            # least once since cancelled above
+            _done, pending = await asyncio.wait(tasks, timeout=0.01)
+
+            for task in pending:
+                name = task.get_name()
+                coro = task.get_coro()
+                _log.warning("Task %s wrapping coro %r did not exit properly", name, coro)
+
+        loop.run_until_complete(async_finalization())
+        loop.run_until_complete(loop.shutdown_asyncgens())
+
+        # version specific
+        shutdown_default_executor = getattr(loop, "shutdown_default_executor", None)
+        if shutdown_default_executor:
+            loop.run_until_complete(shutdown_default_executor())
+
+        for task in tasks:
+            try:
+                exc = task.exception()
+                if exc is not None:
+                    loop.call_exception_handler(
+                        {
+                            "message": "Unhandled exception in task during shutdown.",
+                            "exception": exc,
+                            "task": task,
+                        }
+                    )
+            except (asyncio.InvalidStateError, asyncio.CancelledError):
+                pass
+
+        asyncio.set_event_loop(None)
+        loop.close()
+
+        if not client_future.cancelled():
+            try:
+                client_future.result()
+            except KeyboardInterrupt:
+                pass
+            except Exception as exc:
+                _log.exception('Unhandled exception:', exc_info=exc)
 
     # properties
 
