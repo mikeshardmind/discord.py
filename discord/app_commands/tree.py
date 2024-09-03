@@ -46,6 +46,7 @@ from typing import (
 from collections import Counter
 
 
+
 from .namespace import Namespace, ResolveKey
 from .models import AppCommand
 from .commands import Command, ContextMenu, Group
@@ -62,7 +63,7 @@ from .installs import AppCommandContext, AppInstallationType
 from .translator import Translator, locale_str
 from ..errors import ClientException, HTTPException
 from ..enums import AppCommandType, InteractionType
-from ..utils import MISSING, _get_as_snowflake, _is_submodule, _shorten
+from ..utils import MISSING, _get_as_snowflake, _is_submodule, _shorten, create_task
 from .._types import ClientT
 
 
@@ -1152,7 +1153,7 @@ class CommandTree(Generic[ClientT]):
             except AppCommandError as e:
                 await self._dispatch_error(interaction, e)
 
-        self.client.loop.create_task(wrapper(), name='CommandTree-invoker')
+        create_task(wrapper(), name='CommandTree-invoker')
 
     def _get_context_menu(self, data: ApplicationCommandInteractionData) -> Optional[ContextMenu]:
         name = data['name']

@@ -30,7 +30,7 @@ import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, ClassVar, List
 
-from ..utils import MISSING, find
+from ..utils import MISSING, find, create_task
 from .._types import ClientT
 from .item import Item
 from .view import View
@@ -197,7 +197,7 @@ class Modal(View):
     def _dispatch_submit(
         self, interaction: Interaction, components: List[ModalSubmitComponentInteractionDataPayload]
     ) -> None:
-        asyncio.create_task(self._scheduled_task(interaction, components), name=f'discord-ui-modal-dispatch-{self.id}')
+        create_task(self._scheduled_task(interaction, components), name=f'discord-ui-modal-dispatch-{self.id}')
 
     def to_dict(self) -> Dict[str, Any]:
         payload = {

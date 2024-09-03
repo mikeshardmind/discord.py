@@ -1030,7 +1030,7 @@ class InteractionResponse(Generic[ClientT]):
                 except HTTPException:
                     pass
 
-            asyncio.create_task(inner_call())
+            utils.create_task(inner_call())
 
         return InteractionCallbackResponse(
             data=response,
@@ -1174,7 +1174,7 @@ class InteractionResponse(Generic[ClientT]):
                 except HTTPException:
                     pass
 
-            asyncio.create_task(inner_call())
+            utils.create_task(inner_call())
 
         return InteractionCallbackResponse(
             data=response,
@@ -1493,6 +1493,6 @@ class InteractionMessage(Message):
                 except HTTPException:
                     pass
 
-            asyncio.create_task(inner_call())
+            utils.create_task(inner_call())
         else:
             await self._state._interaction.delete_original_response()

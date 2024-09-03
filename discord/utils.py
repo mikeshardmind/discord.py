@@ -1540,3 +1540,15 @@ class _RawReprMixin:
     def __repr__(self) -> str:
         value = ' '.join(f'{attr}={getattr(self, attr)!r}' for attr in self.__slots__)
         return f'<{self.__class__.__name__} {value}>'
+def copy_sig(f: T) -> Callable[..., T]:
+    return lambda x: x
+
+_task_cache: set[asyncio.Task[Any]] = set()
+
+
+@copy_sig(asyncio.create_task)
+def create_task(*args: Any, **kwargs: Any):
+    t = asyncio.create_task(*args, **kwargs)
+    _task_cache.add(t)
+    t.add_done_callback(_task_cache.discard)
+    return t
