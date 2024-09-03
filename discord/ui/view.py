@@ -41,6 +41,7 @@ from ..components import (
     Button as ButtonComponent,
     SelectMenu as SelectComponent,
 )
+from ..utils import create_task
 
 # fmt: off
 __all__ = (
@@ -449,13 +450,13 @@ class View:
             self.__cancel_callback = None
 
         self.__stopped.set_result(True)
-        asyncio.create_task(self.on_timeout(), name=f'discord-ui-view-timeout-{self.id}')
+        create_task(self.on_timeout(), name=f'discord-ui-view-timeout-{self.id}')
 
     def _dispatch_item(self, item: Item, interaction: Interaction):
         if self.__stopped.done():
             return
 
-        asyncio.create_task(self._scheduled_task(item, interaction), name=f'discord-ui-view-dispatch-{self.id}')
+        create_task(self._scheduled_task(item, interaction), name=f'discord-ui-view-dispatch-{self.id}')
 
     def _refresh(self, components: List[Component]) -> None:
         # fmt: off
@@ -653,7 +654,7 @@ class ViewStore:
         for pattern, item in self._dynamic_items.items():
             match = pattern.fullmatch(custom_id)
             if match is not None:
-                asyncio.create_task(
+                create_task(
                     self.schedule_dynamic_item_call(component_type, item, interaction, custom_id, match),
                     name=f'discord-ui-dynamic-item-{item.__name__}-{custom_id}',
                 )

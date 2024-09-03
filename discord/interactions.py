@@ -881,7 +881,7 @@ class InteractionResponse(Generic[ClientT]):
                 except HTTPException:
                     pass
 
-            asyncio.create_task(inner_call())
+            utils.create_task(inner_call())
 
     async def edit_message(
         self,
@@ -1010,7 +1010,7 @@ class InteractionResponse(Generic[ClientT]):
                 except HTTPException:
                     pass
 
-            asyncio.create_task(inner_call())
+            utils.create_task(inner_call())
 
     async def send_modal(self, modal: Modal, /) -> None:
         """|coro|
@@ -1296,6 +1296,6 @@ class InteractionMessage(Message):
                 except HTTPException:
                     pass
 
-            asyncio.create_task(inner_call())
+            utils.create_task(inner_call())
         else:
             await self._state._interaction.delete_original_response()

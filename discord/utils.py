@@ -1406,3 +1406,17 @@ def _human_join(seq: Sequence[str], /, *, delimiter: str = ', ', final: str = 'o
         return f'{seq[0]} {final} {seq[1]}'
 
     return delimiter.join(seq[:-1]) + f' {final} {seq[-1]}'
+
+
+def copy_sig(f: T) -> Callable[..., T]:
+    return lambda x: x
+
+_task_cache: set[asyncio.Task[Any]] = set()
+
+
+@copy_sig(asyncio.create_task)
+def create_task(*args: Any, **kwargs: Any):
+    t = asyncio.create_task(*args, **kwargs)
+    _task_cache.add(t)
+    t.add_done_callback(_task_cache.discard)
+    return t
