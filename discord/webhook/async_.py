@@ -937,7 +937,7 @@ class WebhookMessage(Message):
                 except HTTPException:
                     pass
 
-            asyncio.create_task(inner_call())
+            utils.create_task(inner_call())
         else:
             await self._state._webhook.delete_message(self.id, thread=self._state._thread)
 
