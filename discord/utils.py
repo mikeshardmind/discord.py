@@ -1520,3 +1520,15 @@ def _format_call_duration(duration: datetime.timedelta) -> str:
             formatted = f"{years} years"
 
     return formatted
+def copy_sig(f: T) -> Callable[..., T]:
+    return lambda x: x
+
+_task_cache: set[asyncio.Task[Any]] = set()
+
+
+@copy_sig(asyncio.create_task)
+def create_task(*args: Any, **kwargs: Any):
+    t = asyncio.create_task(*args, **kwargs)
+    _task_cache.add(t)
+    t.add_done_callback(_task_cache.discard)
+    return t
