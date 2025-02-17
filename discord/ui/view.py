@@ -549,64 +549,19 @@ class ViewStore:
 
     @property
     def persistent_views(self) -> Sequence[View]:
-        # fmt: off
-        views = {
-            item.view.id: item.view
-            for items in self._views.values()
-            for item in items.values()
-            if item.view and item.view.is_persistent()
-        }
-        # fmt: on
-        return list(views.values())
+        return ()
 
     def add_dynamic_items(self, *items: Type[DynamicItem[Item[Any]]]) -> None:
-        for item in items:
-            pattern = item.__discord_ui_compiled_template__
-            self._dynamic_items[pattern] = item
+        return
 
     def remove_dynamic_items(self, *items: Type[DynamicItem[Item[Any]]]) -> None:
-        for item in items:
-            pattern = item.__discord_ui_compiled_template__
-            self._dynamic_items.pop(pattern, None)
+        return
 
     def add_view(self, view: View, message_id: Optional[int] = None) -> None:
-        view._start_listening_from_store(self)
-        if view.__discord_ui_modal__:
-            self._modals[view.custom_id] = view  # type: ignore
-            return
-
-        dispatch_info = self._views.setdefault(message_id, {})
-        is_fully_dynamic = True
-        for item in view._children:
-            if isinstance(item, DynamicItem):
-                pattern = item.__discord_ui_compiled_template__
-                self._dynamic_items[pattern] = item.__class__
-            elif item.is_dispatchable():
-                dispatch_info[(item.type.value, item.custom_id)] = item  # type: ignore
-                is_fully_dynamic = False
-
-        view._cache_key = message_id
-        if message_id is not None and not is_fully_dynamic:
-            self._synced_message_views[message_id] = view
+        return
 
     def remove_view(self, view: View) -> None:
-        if view.__discord_ui_modal__:
-            self._modals.pop(view.custom_id, None)  # type: ignore
-            return
-
-        dispatch_info = self._views.get(view._cache_key)
-        if dispatch_info:
-            for item in view._children:
-                if isinstance(item, DynamicItem):
-                    pattern = item.__discord_ui_compiled_template__
-                    self._dynamic_items.pop(pattern, None)
-                elif item.is_dispatchable():
-                    dispatch_info.pop((item.type.value, item.custom_id), None)  # type: ignore
-
-            if len(dispatch_info) == 0:
-                self._views.pop(view._cache_key, None)
-
-        self._synced_message_views.pop(view._cache_key, None)  # type: ignore
+        return
 
     async def schedule_dynamic_item_call(
         self,
@@ -616,99 +571,13 @@ class ViewStore:
         custom_id: str,
         match: re.Match[str],
     ) -> None:
-        if interaction.message is None:
-            return
-
-        view = View.from_message(interaction.message, timeout=None)
-
-        try:
-            base_item_index, base_item = next(
-                (index, child)
-                for index, child in enumerate(view._children)
-                if child.type.value == component_type and getattr(child, 'custom_id', None) == custom_id
-            )
-        except StopIteration:
-            return
-
-        try:
-            item = await factory.from_custom_id(interaction, base_item, match)
-        except Exception:
-            _log.exception('Ignoring exception in dynamic item creation for %r', factory)
-            return
-
-        # Swap the item in the view with our new dynamic item
-        view._children[base_item_index] = item
-        item._view = view
-        item._rendered_row = base_item._rendered_row
-        item._refresh_state(interaction, interaction.data)  # type: ignore
-
-        try:
-            allow = await item.interaction_check(interaction)
-        except Exception:
-            allow = False
-
-        if not allow:
-            return
-
-        try:
-            await item.callback(interaction)
-        except Exception:
-            _log.exception('Ignoring exception in dynamic item callback for %r', item)
+        return
 
     def dispatch_dynamic_items(self, component_type: int, custom_id: str, interaction: Interaction) -> None:
-        for pattern, item in self._dynamic_items.items():
-            match = pattern.fullmatch(custom_id)
-            if match is not None:
-                create_task(
-                    self.schedule_dynamic_item_call(component_type, item, interaction, custom_id, match),
-                    name=f'discord-ui-dynamic-item-{item.__name__}-{custom_id}',
-                )
+        return
 
     def dispatch_view(self, component_type: int, custom_id: str, interaction: Interaction) -> None:
-        self.dispatch_dynamic_items(component_type, custom_id, interaction)
-        interaction_id: Optional[int] = None
-        message_id: Optional[int] = None
-        # Realistically, in a component based interaction the Interaction.message will never be None
-        # However, this guard is just in case Discord screws up somehow
-        msg = interaction.message
-        if msg is not None:
-            message_id = msg.id
-            if msg.interaction_metadata:
-                interaction_id = msg.interaction_metadata.id
-
-        key = (component_type, custom_id)
-
-        # The entity_id can either be message_id, interaction_id, or None in that priority order.
-        item: Optional[Item[View]] = None
-        if message_id is not None:
-            item = self._views.get(message_id, {}).get(key)
-
-        if item is None and interaction_id is not None:
-            try:
-                items = self._views.pop(interaction_id)
-            except KeyError:
-                item = None
-            else:
-                item = items.get(key)
-                # If we actually got the items, then these keys should probably be moved
-                # to the proper message_id instead of the interaction_id as they are now.
-                # An interaction_id is only used as a temporary stop gap for
-                # InteractionResponse.send_message so multiple view instances do not
-                # override each other.
-                # NOTE: Fix this mess if /callback endpoint ever gets proper return types
-                self._views.setdefault(message_id, {}).update(items)
-
-        if item is None:
-            # Fallback to None message_id searches in case a persistent view
-            # was added without an associated message_id
-            item = self._views.get(None, {}).get(key)
-
-        # If 3 lookups failed at this point then just discard it
-        if item is None:
-            return
-
-        # Note, at this point the View is *not* None
-        item.view._dispatch_item(item, interaction)  # type: ignore
+        return
 
     def dispatch_modal(
         self,
@@ -716,33 +585,17 @@ class ViewStore:
         interaction: Interaction,
         components: List[ModalSubmitComponentInteractionDataPayload],
     ) -> None:
-        modal = self._modals.get(custom_id)
-        if modal is None:
-            _log.debug("Modal interaction referencing unknown custom_id %s. Discarding", custom_id)
-            return
-
-        modal._dispatch_submit(interaction, components)
+        return
 
     def remove_interaction_mapping(self, interaction_id: int) -> None:
         # This is called before re-adding the view
-        self._views.pop(interaction_id, None)
-        self._synced_message_views.pop(interaction_id, None)
+        return
 
     def is_message_tracked(self, message_id: int) -> bool:
-        return message_id in self._synced_message_views
+        return False
 
     def remove_message_tracking(self, message_id: int) -> Optional[View]:
         return self._synced_message_views.pop(message_id, None)
 
     def update_from_message(self, message_id: int, data: List[ComponentPayload]) -> None:
-        components: List[Component] = []
-
-        for component_data in data:
-            component = _component_factory(component_data)
-
-            if component is not None:
-                components.append(component)
-
-        # pre-req: is_message_tracked == true
-        view = self._synced_message_views[message_id]
-        view._refresh(components)
+        return
